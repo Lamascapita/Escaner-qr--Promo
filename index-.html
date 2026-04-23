@@ -1,0 +1,96 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner QR Final</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #f0f2f5;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 400px;
+            margin: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="box">
+        <h2>Escáner QR</h2>
+        <div id="reader"></div>
+        <input type="text" id="resultado" placeholder="Aquí aparecerá el QR...">
+        <button onclick="enviar()">ENVIAR A MAKE</button>
+        <p id="msg" style="color: gray;">Esperando cámara...</p>
+    </div>
+
+    <script>
+        // 1. PEGA AQUÍ TU URL DE MAKE
+        const URL_MAKE = "https://hook.us2.make.com/7nfgc21f08o4a2uqxvqbt06aqoa119kv";
+
+        function onScanSuccess(text) {
+            document.getElementById('resultado').value = text;
+            document.getElementById('msg').innerText = "¡QR Detectado!";
+            document.getElementById('msg').style.color = "green";
+        }
+
+        function enviar() {
+            const dato = document.getElementById('resultado').value;
+            if (!dato) return alert("Escanea un QR primero");
+
+            document.getElementById('msg').innerText = "Enviando...";
+
+            // MÉTODO INFALIBLE: Usamos una petición simple que no requiere permisos especiales (CORS)
+            fetch(URL_MAKE + "?qr=" + encodeURIComponent(dato), {
+                method: 'GET', // Cambiamos a GET para que sea más simple para el navegador
+                mode: 'no-cors'
+            })
+            .then(() => {
+                alert("¡Proceso completado! Revisa tu Make.");
+                document.getElementById('msg').innerText = "Enviado correctamente";
+            })
+            .catch(err => {
+                alert("Error de conexión, pero el dato podría haber llegado.");
+                console.error(err);
+            });
+        }
+
+        let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        scanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
