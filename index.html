@@ -1,0 +1,92 @@
+﻿<
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mi Escáner QR</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            display: flex;
+            justify-content: center;
+            background: #f4f7f6;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+            text-align: center;
+        }
+
+        #reader {
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Escáner QR</h1>
+        <div id="reader"></div>
+        <input type="text" id="qr-link" placeholder="Resultado del QR...">
+        <button onclick="enviarAMake()">Enviar a Make</button>
+        <p id="status" style="margin-top:10px; color: #666;">Esperando cámara...</p>
+    </div>
+
+    <script>
+        
+        const URL_MAKE = "https://hook.us1.make.com/xxxxxx";
+
+        function onScanSuccess(decodedText) {
+            document.getElementById('qr-link').value = decodedText;
+            document.getElementById('status').innerText = "¡QR Detectado!";
+            document.getElementById('status').style.color = "green";
+        }
+
+        async function enviarAMake() {
+            const data = document.getElementById('qr-link').value;
+            if(!data) return alert("Escanea algo primero");
+
+            try {
+                await fetch(URL_MAKE, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({ qr: data })
+                });
+                alert("¡Enviado con éxito!");
+            } catch(e) { alert("Error al enviar"); }
+        }
+
+        let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
+        scanner.render(onScanSuccess);
+    </script>
+</body>
+</html>
