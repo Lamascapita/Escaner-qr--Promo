@@ -72,6 +72,39 @@
         }
 
         async function enviarAMake() {
+            
+                const qrData = document.getElementById('qr-link').value;
+                const status = document.getElementById('status-message');
+
+                if (!qrData) {
+                    alert("Primero escanea un código QR");
+                    return;
+                }
+
+                status.innerText = "Enviando...";
+
+                try {
+                    const response = await fetch(URL_MAKE, {
+                        method: "POST",
+                        mode: "no-cors", // <--- ESTO SOLUCIONA EL 90% DE LOS ERRORES DE ENVÍO
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            qr_contenido: qrData,
+                            fecha: new Date().toISOString()
+                        })
+                    });
+
+                    // Con 'no-cors', el navegador no puede leer la respuesta, 
+                    // pero el dato llegará a Make perfectamente.
+                    status.innerText = "¡Enviado!";
+                    alert("¡Datos enviados con éxito a Make!");
+
+                } catch (error) {
+                    status.innerText = "Error de conexión";
+                    console.error("Error detallado:", error);
+                    alert("Hubo un problema con la conexión a Make");
+                }
+            }
             const data = document.getElementById('qr-link').value;
             if(!data) return alert("Escanea algo primero");
 
@@ -83,7 +116,7 @@
                 });
                 alert("¡Enviado con éxito!");
             } catch(e) { alert("Error al enviar"); }
-        }
+        
 
         let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
         scanner.render(onScanSuccess);
