@@ -1,0 +1,99 @@
+﻿<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escáner QR - Redirección Directa</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body {
+            font-family: sans-serif;
+            text-align: center;
+            background: #f4f7f6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .box {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            max-width: 400px;
+            margin: auto;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 10px;
+            overflow: hidden;
+            background: black;
+        }
+
+        #msg {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .loading-bar {
+            width: 100%;
+            height: 4px;
+            background: #e0e0e0;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .loading-bar-inner {
+            width: 0%;
+            height: 100%;
+            background: #007bff;
+            transition: width 0.5s;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>Escaneando...</h2>
+        <div id="reader"></div>
+        <p id="msg">Apunta la cámara al código QR</p>
+        <div class="loading-bar" id="bar"><div class="loading-bar-inner" id="progress"></div></div>
+    </div>
+
+    <script>
+        function alDetectarQR(decodedText) {
+            // 1. Detener el escáner para evitar múltiples lecturas
+            html5QrcodeScanner.clear();
+
+            // 2. Mostrar mensaje de carga
+            document.getElementById('msg').innerText = "¡QR Detectado! Abriendo...";
+            document.getElementById('msg').style.color = "#28a745";
+            document.getElementById('bar').style.display = "block";
+            document.getElementById('progress').style.width = "100%";
+
+            // 3. Redirigir a la URL del QR después de un breve retraso
+            setTimeout(() => {
+                window.location.href = decodedText;
+            }, 800);
+        }
+
+        function alFallar(err) {
+            // Ignorar errores de lectura constantes
+        }
+
+        // Configuración del escáner
+        const html5QrcodeScanner = new Html5QrcodeScanner(
+            "reader",
+            {
+                fps: 20,
+                qrbox: { width: 250, height: 250 },
+                aspectRatio: 1.0
+            }
+        );
+
+        html5QrcodeScanner.render(alDetectarQR, alFallar);
+    </script>
+
+</body>
+</html>
