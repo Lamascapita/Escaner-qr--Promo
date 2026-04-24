@@ -60,13 +60,21 @@
 
     <script>
         // 1. PEGA AQUÍ TU URL DE MAKE
-        const URL_MAKE = "https://hook.us2.make.com/7nfgc21f08o4a2uqxvqbt06aqoa119kv";
+        const URL_MAKE = "ttps://hook.us2.make.com/7nfgc21f08o4a2uqxvqbt06aqoa119kv";
 
         function onScanSuccess(text) {
             document.getElementById('resultado').value = text;
             document.getElementById('msg').innerText = "¡QR Detectado!";
             document.getElementById('msg').style.color = "green";
         }
+
+            function onScanSuccess(decodedText, decodedResult) {
+                // Mostrar el contenido en la pantalla
+                document.getElementById('resultado').innerText = decodedText;
+                // Enviar automáticamente a Make
+                enviarAMake(decodedText);
+            }
+        
 
         function enviar() {
             const dato = document.getElementById('resultado').value;
