@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Escáner QR Final</title>
+    <title>Escáner QR Final - Corregido</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
         body {
@@ -47,56 +47,67 @@
             font-weight: bold;
             cursor: pointer;
         }
+
+            button:disabled {
+                background: #ccc;
+            }
     </style>
 </head>
 <body>
     <div class="box">
         <h2>Escáner QR</h2>
         <div id="reader"></div>
-        <input type="text" id="resultado" placeholder="Aquí aparecerá el QR...">
-        <button onclick="enviar()">ENVIAR A MAKE</button>
+        <input type="text" id="resultado" placeholder="Aquí aparecerá el QR..." readonly>
+        <button id="btnEnviar" onclick="enviar()">ENVIAR A MAKE</button>
         <p id="msg" style="color: gray;">Esperando cámara...</p>
     </div>
 
     <script>
-        // 1. PEGA AQUÍ TU URL DE MAKE
-        const URL_MAKE = "ttps://hook.us2.make.com/7nfgc21f08o4a2uqxvqbt06aqoa119kv";
+        // 1. URL CORREGIDA (Se añadió la 'h')
+        const URL_MAKE = "https://hook.us2.make.com/7nfgc21f08o4a2uqxvqbt06aqoa119kv";
 
-        function onScanSuccess(text) {
-            document.getElementById('resultado').value = text;
+        // 2. FUNCIÓN DE ÉXITO ÚNICA Y CORREGIDA
+        function onScanSuccess(decodedText) {
+            document.getElementById('resultado').value = decodedText;
             document.getElementById('msg').innerText = "¡QR Detectado!";
             document.getElementById('msg').style.color = "green";
-        }
 
-            function onScanSuccess(decodedText, decodedResult) {
-                // Mostrar el contenido en la pantalla
-                document.getElementById('resultado').innerText = decodedText;
-                // Enviar automáticamente a Make
-                enviarAMake(decodedText);
-            }
-        
+            // Opcional: Enviar automáticamente al detectar
+            // enviar();
+        }
 
         function enviar() {
             const dato = document.getElementById('resultado').value;
             if (!dato) return alert("Escanea un QR primero");
 
-            document.getElementById('msg').innerText = "Enviando...";
+            const msgElement = document.getElementById('msg');
+            const btn = document.getElementById('btnEnviar');
 
-            // MÉTODO INFALIBLE: Usamos una petición simple que no requiere permisos especiales (CORS)
+            msgElement.innerText = "Enviando...";
+            msgElement.style.color = "orange";
+            btn.disabled = true;
+
+            // Usamos una petición estándar
             fetch(URL_MAKE + "?qr=" + encodeURIComponent(dato), {
-                method: 'GET', // Cambiamos a GET para que sea más simple para el navegador
-                mode: 'no-cors'
+                method: 'GET'
             })
-            .then(() => {
-                alert("¡Proceso completado! Revisa tu Make.");
-                document.getElementById('msg').innerText = "Enviado correctamente";
-            })
-            .catch(err => {
-                alert("Error de conexión, pero el dato podría haber llegado.");
-                console.error(err);
-            });
+                .then(response => {
+                    alert("¡Proceso completado! Revisa tu Make.");
+                    msgElement.innerText = "Enviado correctamente";
+                    msgElement.style.color = "green";
+                })
+                .catch(err => {
+                    alert("Error al enviar a Make. Verifica tu conexión o el Webhook.");
+                    msgElement.innerText = "Error en el envío";
+                    msgElement.style.color = "red";
+                    console.error(err);
+                })
+                .finally(() => {
+                    btn.disabled = false;
+                });
         }
 
+        // Inicialización del escáner
         let scanner = new Html5QrcodeScanner("reader", { fps: 10, qrbox: 250 });
         scanner.render(onScanSuccess);
     </script>
