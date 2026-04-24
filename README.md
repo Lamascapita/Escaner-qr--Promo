@@ -1,1 +1,0 @@
-# Escaner-qr--Promo
