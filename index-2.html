@@ -1,0 +1,256 @@
+﻿// ---------- Variables globales ----------
+let cameraScannerInstance = null;
+let isProcessing = false;
+let currentFileScanner = null;
+
+const msgElement = document.getElementById('msg');
+const loadingBar = document.getElementById('bar');
+const progressBarInner = document.getElementById('progress');
+const fileInput = document.getElementById('qrFile');
+
+// ---------- Funciones auxiliares ----------
+function setMessage(text, isError = false, isSuccess = false) {
+    msgElement.innerHTML = `<span class="icon">${isError ? '⚠️' : (isSuccess ? '✅' : '🔍')}</span> ${text}`;
+    msgElement.style.color = isError ? '#b91c1c' : (isSuccess ? '#15803d' : '#1e293b');
+}
+
+function showProgressBar(percent = 0) {
+    loadingBar.style.display = 'block';
+    progressBarInner.style.width = Math.min(100, Math.max(0, percent)) + '%';
+}
+
+function hideProgressBar() {
+    loadingBar.style.display = 'none';
+    progressBarInner.style.width = '0%';
+}
+
+function redirectToUrl(url, delayMs = 700) {
+    if (isProcessing) return;
+    isProcessing = true;
+    setMessage("✅ ¡QR detectado! Redirigiendo ahora...", false, true);
+    showProgressBar(100);
+    setTimeout(() => {
+        window.location.href = url;
+    }, delayMs);
+}
+
+// ---------- Control de cámara (igual que antes) ----------
+async function stopCameraScanner() {
+    if (cameraScannerInstance) {
+        try {
+            await cameraScannerInstance.clear();
+            console.log("Escáner de cámara detenido");
+        } catch (err) {
+            console.warn("Error al limpiar escáner:", err);
+        }
+        cameraScannerInstance = null;
+    }
+}
+
+async function startCameraScanner() {
+    if (cameraScannerInstance || isProcessing) return;
+    try {
+        cameraScannerInstance = new Html5QrcodeScanner(
+            "reader",
+            { fps: 18, qrbox: { width: 260, height: 260 }, aspectRatio: 1.0, disableFlip: false, rememberLastUsedCamera: true },
+            false
+        );
+        cameraScannerInstance.render(onQrDetectedByCamera, onCameraScanError);
+        setMessage("📷 Cámara activa. Enfoca un código QR", false);
+    } catch (err) {
+        console.error(err);
+        setMessage("❌ No se pudo acceder a la cámara. Verifica permisos.", true);
+        cameraScannerInstance = null;
+    }
+}
+
+function onQrDetectedByCamera(decodedText) {
+    if (isProcessing || !decodedText || decodedText.trim() === "") return;
+    console.log("QR detectado por cámara:", decodedText);
+    if (cameraScannerInstance) {
+        cameraScannerInstance.clear().catch(e => console.warn);
+        cameraScannerInstance = null;
+    }
+    setMessage(`🎯 QR leído: ${decodedText.length > 40 ? decodedText.substring(0, 40) + '…' : decodedText}`, false, false);
+    showProgressBar(70);
+    redirectToUrl(decodedText, 750);
+}
+
+function onCameraScanError(err) {
+    if (err && typeof err === 'string' && err.includes("No QR code found")) return;
+    console.log("Escaneo sin QR:", err);
+}
+
+// ---------- NUEVA FUNCIÓN: preparar imagen (redimensionar + canvas) ----------
+async function prepareImageForScanning(file) {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+            // Redimensionar si es muy grande (máximo 800px de lado)
+            let width = img.width;
+            let height = img.height;
+            const maxSize = 800;
+            if (width > maxSize || height > maxSize) {
+                if (width > height) {
+                    height = (height * maxSize) / width;
+                    width = maxSize;
+                } else {
+                    width = (width * maxSize) / height;
+                    height = maxSize;
+                }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            // Convertir a PNG de buena calidad
+            canvas.toBlob(blob => {
+                if (!blob) reject(new Error("No se pudo convertir la imagen"));
+                else resolve(blob);
+            }, 'image/png', 0.95);
+        };
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            reject(new Error("No se pudo cargar la imagen"));
+        };
+        img.src = url;
+    });
+}
+
+// ---------- Escanear QR desde archivo con mejora ----------
+async function decodeQrFromImageFile(file) {
+    // Preparar imagen (redimensionada y convertida a PNG legible)
+    const optimizedBlob = await prepareImageForScanning(file);
+    const optimizedFile = new File([optimizedBlob], "optimized.png", { type: "image/png" });
+
+    const tempScannerId = "temp-hidden-qr-scanner";
+    let tempContainer = document.getElementById(tempScannerId);
+    if (!tempContainer) {
+        tempContainer = document.createElement('div');
+        tempContainer.id = tempScannerId;
+        tempContainer.style.position = "fixed";
+        tempContainer.style.top = "-1000px";
+        tempContainer.style.left = "-1000px";
+        tempContainer.style.width = "1px";
+        tempContainer.style.height = "1px";
+        tempContainer.style.opacity = "0";
+        tempContainer.style.pointerEvents = "none";
+        document.body.appendChild(tempContainer);
+    }
+
+    const imageScanner = new Html5Qrcode(tempScannerId);
+    currentFileScanner = imageScanner;
+
+    try {
+        // Intentar escanear con la imagen optimizada
+        const decodedText = await imageScanner.scanFile(optimizedFile, false);
+        if (!decodedText || decodedText.trim() === "") throw new Error("QR vacío");
+        return decodedText;
+    } catch (err) {
+        console.error("Error en scanFile:", err);
+        // Segundo intento: usar scanImageData manual (más tolerante)
+        console.log("Reintentando con scanImageData...");
+        const img = new Image();
+        const url = URL.createObjectURL(optimizedFile);
+        await new Promise((resolve, reject) => {
+            img.onload = resolve;
+            img.onerror = reject;
+            img.src = url;
+        });
+        URL.revokeObjectURL(url);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const decoded = await imageScanner.scanImageData(imageData);
+        if (!decoded || decoded.trim() === "") throw new Error("No se detectó QR");
+        return decoded;
+    } finally {
+        if (currentFileScanner) {
+            await currentFileScanner.clear().catch(e => console.warn);
+            currentFileScanner = null;
+        }
+    }
+}
+
+async function handleUploadedFile(file) {
+    if (!file || isProcessing) return;
+
+    if (!file.type.includes('image')) {
+        setMessage("❌ El archivo no es una imagen válida (usa PNG o JPG)", true);
+        setTimeout(() => {
+            if (!isProcessing) setMessage("📷 Cámara activa. Enfoca un código QR", false);
+        }, 2000);
+        return;
+    }
+
+    await stopCameraScanner();
+
+    setMessage(`📂 Procesando imagen: ${file.name.substring(0, 28)}...`, false);
+    showProgressBar(30);
+    setTimeout(() => showProgressBar(55), 100);
+
+    try {
+        const qrUrl = await decodeQrFromImageFile(file);
+        if (!qrUrl || qrUrl.trim() === "") throw new Error("QR vacío");
+
+        showProgressBar(100);
+        setMessage(`✅ QR leído correctamente. Redirigiendo...`, false, true);
+
+        setTimeout(() => {
+            window.location.href = qrUrl;
+        }, 700);
+    } catch (error) {
+        console.error("Error detallado:", error);
+        let errorMsg = error.message || "No se encontró QR en la imagen";
+        setMessage(`⚠️ No se pudo leer: ${errorMsg}. Intenta con otro QR.`, true);
+        hideProgressBar();
+        setTimeout(() => {
+            if (!isProcessing) {
+                setMessage("📷 Cámara nuevamente activa. Escanea o sube otro archivo.", false);
+                startCameraScanner();
+            }
+        }, 2500);
+    } finally {
+        fileInput.value = '';
+        if (!isProcessing) {
+            setTimeout(() => hideProgressBar(), 1000);
+        }
+    }
+}
+
+// ---------- Eventos (igual) ----------
+fileInput.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (file && !isProcessing) {
+        handleUploadedFile(file);
+    } else if (isProcessing) {
+        setMessage("⏳ Redirigiendo, por favor espera...", false);
+        fileInput.value = '';
+    }
+});
+
+window.addEventListener('DOMContentLoaded', () => {
+    startCameraScanner();
+});
+
+document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && !cameraScannerInstance && !isProcessing) {
+        console.log("Pestaña activa nuevamente, reiniciando cámara");
+        startCameraScanner();
+    }
+});
+
+window.addEventListener('beforeunload', () => {
+    if (cameraScannerInstance) {
+        cameraScannerInstance.clear().catch(e => console.warn);
+    }
+    if (currentFileScanner) {
+        currentFileScanner.clear().catch(e => console.warn);
+    }
+});
